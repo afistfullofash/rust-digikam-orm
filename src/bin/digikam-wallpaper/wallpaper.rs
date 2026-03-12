@@ -76,9 +76,7 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
 pub fn set_random_wallpaper(wallpapers: Vec<Image>, mode: wallpaper_ng::Mode) {
     if wallpapers.len() == 1 {
         set_wallpaper(wallpapers[0].clone(), mode)
-    } else {
-        if let Some(wallpaper) = get_random_wallpaper(wallpapers) {
-            set_wallpaper(wallpaper, mode)
-        }
+    } else if let Some(wallpaper) = get_random_wallpaper(wallpapers) {
+        set_wallpaper(wallpaper, mode)
     }
 }

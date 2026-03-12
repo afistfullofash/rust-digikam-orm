@@ -165,7 +165,7 @@ impl Tags {
             Err(_) => Vec::new(),
         };
 
-        image_tags.into_iter().map(|image_tag: ImageTags| -> Option<Tag> {
+        image_tags.into_iter().filter_map(|image_tag: ImageTags| -> Option<Tag> {
             debug!(image_tag = ?image_tag, "Finding the tag for this image_tag");
             match tags_dsl::Tags.filter(tags_dsl::id.eq(image_tag.tagid))
                 .select(TagsTable::as_select())
@@ -179,6 +179,6 @@ impl Tags {
                     None
                 }
             }
-	}).flatten().collect::<Vec<Tag>>()
+	}).collect::<Vec<Tag>>()
     }
 }

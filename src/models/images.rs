@@ -154,8 +154,7 @@ impl Images {
         {
             Ok(tags) => tags
                 .into_iter()
-                .map(|tag| Image::get(connection, tag.imageid))
-                .flatten()
+                .filter_map(|tag| Image::get(connection, tag.imageid))
                 .collect::<Vec<Image>>(),
             Err(_) => {
                 debug!(tag = ?&tag, "Could not find image_tags for tag");
