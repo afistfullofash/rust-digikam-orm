@@ -4,6 +4,7 @@ use wallpaper_ng as wallpaper;
 use rust_digikam_orm::models::images::Image;
 use tracing::{error, info};
 
+/// Convert the mode defined as a string into a value wallpaper-ng can use
 pub fn mode_from_config(mode: &str) -> wallpaper_ng::Mode {
     match mode.trim().to_ascii_lowercase().as_str() {
         "center" => wallpaper_ng::Mode::Center,
@@ -16,6 +17,11 @@ pub fn mode_from_config(mode: &str) -> wallpaper_ng::Mode {
     }
 }
 
+/// Set a single wallpaper
+///
+/// # Arguments
+/// wallpaper: A Vector of Images to select a wallpaper to set from
+/// mode: The mode to set the wallpaper in. Such as "center", "tile"
 pub fn set_wallpaper(wallpaper: Image, mode: wallpaper_ng::Mode) {
     let base_image_directory = wallpaper.clone().full_path.unwrap();
 
@@ -42,6 +48,10 @@ pub fn set_wallpaper(wallpaper: Image, mode: wallpaper_ng::Mode) {
     };
 }
 
+/// Get a random wallpaper from a selection
+///
+/// # Arguments
+/// wallpapers: A Vector of Images to select from
 fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
     let current_wallpaper = wallpaper::get().unwrap_or_else(|_| "".to_string());
     let mut rng = rand::rng();
@@ -73,6 +83,11 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
     }
 }
 
+///  Set a Random Wallpaper from a selection
+///
+/// # Arguments
+/// wallpapers: A Vector of Images to select a wallpaper to set from
+/// mode: The mode to set the wallpaper in. Such as "center", "tile"
 pub fn set_random_wallpaper(wallpapers: Vec<Image>, mode: wallpaper_ng::Mode) {
     if wallpapers.len() == 1 {
         set_wallpaper(wallpapers[0].clone(), mode)

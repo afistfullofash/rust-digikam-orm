@@ -1,3 +1,6 @@
+//! # Images
+//!
+//! Models for interacting with the Images withing a Digikam Database
 use diesel::prelude::*;
 use std::collections::HashSet;
 use tracing::debug;
@@ -10,38 +13,51 @@ use crate::schema::Albums::dsl as albums_dsl;
 use crate::schema::ImageTags::dsl as image_tags_dsl;
 use crate::schema::Images::dsl as images_dsl;
 
+/// A Library internal representation of the Images table for Digikam
 #[derive(Queryable, Selectable, Debug, Identifiable, Clone)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 #[diesel(table_name = crate::schema::Images)]
 #[diesel(belongs_to(Albums, foreign_key = album))]
 pub struct ImageTable {
+    /// The image id in the database
     #[diesel(select_expression = crate::schema::Images::id.assume_not_null())]
     pub id: i32,
+    /// The album id of the `Album` the Image is in
     pub album: Option<i32>,
+    /// The name of the `Image`. This includes the file extension (i.e: foo.jpg)
     pub name: String,
     pub status: i32,
     pub category: i32,
     pub modification_date: Option<String>,
+    /// The name of the `Image`. This includes the file extension (i.e: foo.jpg)
     pub file_size: Option<i32>,
+    /// The unique hash of the `Image` in the database
     pub unique_hash: Option<String>,
     pub manual_order: Option<i32>,
 }
 
 /// A representation of a image from the digiKam Database
-/// This has the tags added to it as a Vector of Tags
+/// This has the tags added to it as a `Vec` of `Tags`
 #[derive(Debug, Clone)]
 pub struct Image {
+    /// The image id in the database
     pub id: i32,
+    /// The album id of the `Album` the `Image` is in
     pub album: Option<i32>,
+    /// The name of the `Image`. This includes the file extension (i.e: foo.jpg)
     pub name: String,
     pub status: i32,
     pub category: i32,
     pub modification_date: Option<String>,
+    /// The size of the `Image`
     pub file_size: Option<i32>,
+    /// The unique hash of the `Image` in the database
     pub unique_hash: Option<String>,
     pub manual_order: Option<i32>,
 
+    /// The full file system path to the `Image`
     pub full_path: Option<String>,
+    /// The Tags which are applied to the `Image`
     pub tags: Vec<Tag>,
 }
 
@@ -60,6 +76,11 @@ impl Image {
         }
     }
 
+    /// Get a `Image` given the Images database id
+    ///
+    /// # Arguments
+    /// * `connection` - A Diesel connection to the digikam sqlite database
+    /// * `id` - The Images id in the database
     pub fn get(connection: &mut SqliteConnection, id: i32) -> Option<Image> {
         debug!(id = id, "getting image by id");
         match images_dsl::Images
@@ -97,6 +118,13 @@ impl Image {
         }
     }
 
+    /// Get the full filesystem path for an `Image`
+    /// This requires finding the path to the `Image`'s `Album` and `AlbumRoot`
+    ///
+    /// # Arguments
+    /// * `connection` - A Diesel connection to the digikam database
+    /// * `name` - The name of the `Image` we are getting the path for
+    /// * `album_id` - The database id of the `Album` this `Image` is in
     pub fn get_path(
         connection: &mut SqliteConnection,
         name: &String,
@@ -145,7 +173,11 @@ pub struct Images {}
 
 impl Images {
     /// Return image ids + resolved filesystem paths for images that match
-    /// ALL of the provided tag paths.
+    /// All of the provided tag paths.
+    ///
+    /// # Arguments
+    /// * `connection` - A connection to the Digikam Sqlite Database
+    /// * `tag` - The `Tag` which the `Image`'s are tagged by
     pub fn get_by_tag(connection: &mut SqliteConnection, tag: Tag) -> Vec<Image> {
         match image_tags_dsl::ImageTags
             .filter(image_tags_dsl::tagid.eq(tag.id))
@@ -163,8 +195,11 @@ impl Images {
         }
     }
 
-    /// Get a Image by a list of tags in string form
-    /// i.e vec!["/Size/wallpaper"]
+    /// Get an `Vec<Image>` from a `Vec<String>` of Tag Names
+    ///
+    /// # Arguments
+    /// * `connection` - A connection to the Digikam Sqlite Database
+    /// * `tag_strings` - A `Vec` of `String` of the `Tag.full_name` to search by
     pub fn get_by_tag_strings(
         connection: &mut SqliteConnection,
         tag_strings: &Vec<String>,
@@ -187,6 +222,15 @@ impl Images {
     /// Given two vectors of Images return a single vector containing only common Images
     /// between the two vectors
     /// In the case either vector is empty we return the vector which is not empty
+    ///
+    /// # Arguments
+    /// * `left` - A `Vec` of `Image` to check comminality for
+    /// * `right` - A `Vec` of `Image` to check comminality for
+    ///
+    /// # Returns
+    /// A `Vec<Image>` which contains the common images in both `Vec`'s
+    /// - One Empty `Vec` Input: The other `Vec` is returned
+    /// - Both Empty: A empty `Vec` is returned
     fn keep_common_images(left: Vec<Image>, right: Vec<Image>) -> Vec<Image> {
         if left.is_empty() {
             debug!("`left` is empty: Returning the `right` set of images");

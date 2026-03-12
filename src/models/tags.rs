@@ -1,3 +1,6 @@
+//! # Tags
+//!
+//! Models for interacting with the Tags within a Digikam Database
 use crate::models::images::ImageTable;
 use crate::schema::ImageTags::dsl as image_tags_dsl;
 use crate::schema::Tags::dsl as tags_dsl;
@@ -6,20 +9,33 @@ use diesel::prelude::*;
 
 use tracing::{debug, error};
 
+/// Internal Library representation of the Tags table in the Digikam database
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 #[diesel(belongs_to(Tags, foreign_key = pid))]
 #[diesel(table_name = crate::schema::Tags)]
 pub struct TagsTable {
+    /// The id of the `Tag` in the database
     #[diesel(select_expression = crate::schema::Tags::id.assume_not_null())]
     pub id: i32,
+    /// The parent `Tag` of this `Tag`
     pub pid: Option<i32>,
+    /// The tags name
     pub name: String,
+    /// The icon used to represent the tag
     pub icon: Option<i32>,
+    /// The kde icon used to represent the tag
     pub iconkde: Option<String>,
 }
 
 impl TagsTable {
+    /// Convert a `TagsTable` Instance into a `Tag`
+    ///
+    /// # Arguments
+    /// * `connection` - A connection to the Digikam Sqlite Database file
+    ///
+    /// # Returns
+    /// A `Tag`
     pub fn to_tag(self, connection: &mut SqliteConnection) -> Tag {
         let full_tag_name = self.get_full_name(connection);
         let tag = Tag {
@@ -35,6 +51,9 @@ impl TagsTable {
     }
 
     /// Get the full tag name as the database does not contain this as a single value
+    ///
+    /// # Arguments
+    /// * `connection` - A Connection to the Digikam Sqlite Database
     fn get_full_name(&self, connection: &mut SqliteConnection) -> String {
         debug!(tag = ?self, "Getting Full tag name");
         let mut tag_path: Vec<TagsTable> = Vec::from([self.clone()]);
@@ -72,13 +91,26 @@ impl TagsTable {
     }
 }
 
+/// A Tag inside Digikam
 #[derive(Debug, Clone)]
 pub struct Tag {
+    /// The tag id inside the database
     pub id: i32,
+    /// The parent id of the tag
     pub pid: Option<i32>,
+    /// The name of the tag
     pub name: String,
+    /// The icon the tag uses
     pub icon: Option<i32>,
+    /// The kdeicon the tag uses
     pub iconkde: Option<String>,
+    /// The Full Name of the tag expanded for the full path
+    /// By default the tag name only includes the name of its leaf in the tag tree
+    /// e.g: For the tag /Our Tag {id: 3, pid: Some(2), name: "/Our Tag"}
+    ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
+    ///     => /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
+    ///       => /Parent Tag               <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
+    ///         => /Child Tag              <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
     pub full_name: String,
 }
 
@@ -88,6 +120,11 @@ impl Tag {
         println!("  Name:  {}", self.full_name);
     }
 
+    /// Get a `Tag` given the tags id in the digikam database
+    ///
+    /// # Arguments
+    /// * `connection` - A Sqlite Connection to the Digikam Database
+    /// * `id` - The tags id in the database
     pub fn get(connection: &mut SqliteConnection, id: i32) -> Option<Tag> {
         match tags_dsl::Tags
             .filter(tags_dsl::id.eq(id))
@@ -99,6 +136,11 @@ impl Tag {
         }
     }
 
+    /// Get a `Tag` given a full tag path
+    ///
+    /// # Arguments
+    /// * `connection` - A sqlite connection to the digikam database file
+    /// * `path` - The full tag path eg: "/Root Tag/Parent Tag/Our Tag"
     pub fn get_by_path(connection: &mut SqliteConnection, path: &str) -> Option<Tag> {
         // We have to match from the lowest tag up even though its used top down
         // So we get all the tags matching the last part and then resolve their full names
@@ -140,6 +182,7 @@ impl Tag {
     }
 }
 
+/// A Join Table between `Tag`'s and `Image`'s
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone, Copy)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 #[diesel(belongs_to(ImageTable, foreign_key = imageid))]
@@ -147,14 +190,22 @@ impl Tag {
 #[diesel(table_name = crate::schema::ImageTags)]
 #[diesel(primary_key(rowid))]
 pub struct ImageTags {
+    /// The rowid of the `ImageTag` row in the database
     pub rowid: i32,
+    /// The database id of the `Image`
     pub imageid: i32,
+    /// The database id of the `Tag`
     pub tagid: i32,
 }
 
 pub struct Tags {}
 
 impl Tags {
+    /// Get the `Tag`'s for an `Image` given a `ImageTable`
+    ///
+    /// # Arguments
+    /// * `connection` - A sqlite connection to the current database
+    /// * `image` - A Image to get the tags for
     pub fn get_for_image(connection: &mut SqliteConnection, image: ImageTable) -> Vec<Tag> {
         let image_tags = match image_tags_dsl::ImageTags
             .filter(image_tags_dsl::imageid.eq(&image.id))
