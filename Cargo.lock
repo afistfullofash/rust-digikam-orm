@@ -1573,7 +1573,7 @@ dependencies = [
 
 [[package]]
 name = "rust-digikam-orm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "confique",
@@ -2135,8 +2135,6 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "wallpaper-ng"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e09d2c8fd852e1da2ae20d69495dcdd9b21b1184393ea2b98f8f5c9cc02f78"
 dependencies = [
  "dirs",
  "enquote",
