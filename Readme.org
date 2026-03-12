@@ -1,4 +1,8 @@
 #+TITLE: Rust digiKam ORM
+
+#+NAME: GitHub Actions Workflow Status
+#+CAPTION: The current build status of ~master~
+[[https://img.shields.io/github/actions/workflow/status/afistfullofash/rust-digikam-orm/rust.yml?branch=master]]
 [[https://img.shields.io/github/actions/workflow/status/afistfullofash/rust-digikam-orm/rust.yml?branch=master][GitHub Actions Workflow Status]]
 
 
@@ -7,6 +11,11 @@ This implements a rust ORM for querying the [[https://www.digikam.org/][digiKam]
 Currently this only supports querying the SQLite database not the MySQL version.
 
 In addition this also has a program which leverages the ORM to set the wallpaper based on digiKam tags.
+
+* Features
+- Working Model's for:
+  + Image's
+  + Tag's
 
 * Build
 #+begin_src shell
