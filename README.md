@@ -9,27 +9,38 @@ Currently this only supports querying the SQLite database not the MySQL version.
 
 In addition this also has a program which leverages the ORM to set the wallpaper based on digiKam tags.
 
-## Features
+## Library
+### Features
 
 - Working Model\'s for:
   - Image\'s
   - Tag\'s
 
-## Build
+### Todo:
 
-``` shell
-cargo build
-```
+- Models
+  - Labels
+- Consistent API
 
-## digikam-wallpaper
+### Docs
+To generate the documentation for the library run `shell cargo doc --open`
 
-This sets the wallpaper by filtering Image Metadata in the Digikam database. It can also get if the system is in `Dark` or `Light` mode and apply extra tags based on which mode the system is in.
+## Binary's
+This library also includes binary's which leverage the digikam database.
 
-### Usage
+To Build the Binary's run: `shell cargo build`
+
+### digikam-wallpaper
+Randomly set the Wallpaper according to Filters on Images in the digiKam SQLite Database.
+
+- Filters Images by Tags
+- Applies Light/Dark mode settings according to the Systems Light/Dark mode setting
+
+#### Usage
 
 When run without arguments it will attempt to read from a configuration file and if that fails if will apply default values Run `digikam-wallpaper -h` to view command line arguments.
 
-#### Automatically setting wallpaper when the Light/Dark Mode setting changes
+##### Automatically setting wallpaper when the Light/Dark Mode setting changes
 With [Darkman](https://gitlab.com/WhyNotHugo/darkman) installed add the following to `${XDG_DATA_HOME}/darkman/digikam-wallpaper.sh`
 
 ``` shell
@@ -39,19 +50,20 @@ digikam-wallpaper --dark-mode $1
 
 Then every time `darkman` is invoked or the System setting changes `digikam-wallpaper` will be invoked with the correct mode according to `darkman`.
 
-### Configuration File
-
-The default configuration directory depends on your system:
-
-- Linux: XDG Directory Specification i.e: `$HOME/.config/digikam-wallpaper/config.json`
-
+#### Configuration File
 To generate a configuration file with default values run:
 
 ``` shell
 digikam-wallpaper --config-template
 ```
 
-### Todo
+##### Location
+
+The default configuration directory depends on your system:
+- Linux: XDG Directory Specification i.e: `$HOME/.config/digikam-wallpaper/config.json`
+
+
+#### Todo:
 
 - Filters
   - Time Based
@@ -59,4 +71,4 @@ digikam-wallpaper --config-template
     - Season
     - Holidays
     - Current Weather Based
-- Run as a deamon to dynamically change the wallpaper when filters are met
+- Run as a daemon to dynamically change the wallpaper when filters are met
