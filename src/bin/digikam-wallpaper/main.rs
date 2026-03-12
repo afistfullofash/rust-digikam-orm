@@ -10,7 +10,7 @@ use crate::config::get_config;
 use crate::logging::init_logging;
 use crate::wallpaper::{mode_from_config, set_random_wallpaper};
 
-use rust_digikam_orm::models::images::Images;
+use rust_digikam_orm::Images;
 
 fn main() {
     init_logging();

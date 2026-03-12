@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use confique::{json5, Config};
+use confique::{Config, json5};
 use serde::Deserialize;
 use std::fmt;
 use std::path::PathBuf;

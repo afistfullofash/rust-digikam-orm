@@ -1,7 +1,7 @@
 use rand::prelude::IndexedRandom;
 use wallpaper_ng as wallpaper;
 
-use rust_digikam_orm::models::images::Image;
+use rust_digikam_orm::Image;
 use tracing::{error, info};
 
 /// Convert the mode defined as a string into a value wallpaper-ng can use
