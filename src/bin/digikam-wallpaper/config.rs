@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use confique::{json5, Config};
+use confique::{Config, json5};
 use serde::Deserialize;
 use std::fmt;
 use std::path::PathBuf;
@@ -131,7 +131,9 @@ pub fn get_config() -> Option<AppConfig> {
                 && cli.wallpaper_mode.is_none()
                 && cli.db_path.is_none()
             {
-                println!("No cli arguments supplied. Run <command> -h to see options. If this was unintentional.");
+                println!(
+                    "No cli arguments supplied. Run <command> -h to see options. If this was unintentional."
+                );
             } else {
                 if let Some(db_path) = cli.db_path {
                     config.db_path = db_path;
