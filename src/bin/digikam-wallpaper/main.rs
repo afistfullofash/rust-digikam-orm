@@ -41,7 +41,7 @@ fn main() {
 
     let dark_mode_tags = match dark_mode_setting {
         "dark" => config.dark_mode.tags.dark,
-        "dight" => config.dark_mode.tags.light,
+        "light" => config.dark_mode.tags.light,
         "system" => match dark_light::detect().unwrap_or_else(|e| {
             error!(error = ?e, "Error detecting system dark mode");
             println!("Error detecting system dark mode");
