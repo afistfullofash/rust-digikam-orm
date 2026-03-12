@@ -1,4 +1,7 @@
 #+TITLE: Rust digiKam ORM
+[[https://img.shields.io/github/actions/workflow/status/afistfullofash/rust-digikam-orm/rust.yml?branch=master][GitHub Actions Workflow Status]]
+
+
 This implements a rust ORM for querying the [[https://www.digikam.org/][digiKam]] database.
 
 Currently this only supports querying the SQLite database not the MySQL version.
