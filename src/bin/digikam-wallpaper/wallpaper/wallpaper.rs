@@ -4,25 +4,20 @@ use wallpaper_ng as wallpaper;
 use rust_digikam_orm::Image;
 use tracing::{error, info};
 
-/// Convert the mode defined as a string into a value wallpaper-ng can use
-pub fn mode_from_config(mode: &str) -> wallpaper_ng::Mode {
-    match mode.trim().to_ascii_lowercase().as_str() {
-        "center" => wallpaper_ng::Mode::Center,
-        "crop" => wallpaper_ng::Mode::Crop,
-        "fit" => wallpaper_ng::Mode::Fit,
-        "span" => wallpaper_ng::Mode::Span,
-        "stretch" => wallpaper_ng::Mode::Stretch,
-        "tile" => wallpaper_ng::Mode::Tile,
-        _ => wallpaper_ng::Mode::Center,
-    }
+use crate::wallpaper::WallpaperMode;
+
+/// The Options used when setting the Wallpaper
+pub struct WallpaperOptions {
+    /// How to fit the wallpaper to the screen
+    pub mode: WallpaperMode,
 }
 
 /// Set a single wallpaper
 ///
 /// # Arguments
-/// wallpaper: A Vector of Images to select a wallpaper to set from
-/// mode: The mode to set the wallpaper in. Such as "center", "tile"
-pub fn set_wallpaper(wallpaper: Image, mode: wallpaper_ng::Mode) {
+/// * `wallpaper` - A `Vec` of `Image` to select a wallpaper to set from
+/// * `mode` - The mode to set the wallpaper in. Such as "center", "tile"
+pub fn set_wallpaper(wallpaper: Image, options: WallpaperOptions) {
     let base_image_directory = wallpaper.clone().full_path.unwrap();
 
     let mut complete_image_path_buf = homedir::my_home().unwrap().unwrap();
@@ -33,8 +28,9 @@ pub fn set_wallpaper(wallpaper: Image, mode: wallpaper_ng::Mode) {
     match wallpaper::set_from_path(&complete_image_path) {
         Ok(_) => {
             println!("Set wallpaper to: {}", complete_image_path);
-            match wallpaper_ng::set_mode(mode.clone()) {
-                Ok(_) => println!("Set Wallpaper Mode to: {:?}", mode),
+            let wallpaper_ng_mode: wallpaper_ng::Mode = options.mode.into();
+            match wallpaper_ng::set_mode(wallpaper_ng_mode) {
+                Ok(_) => println!("Set Wallpaper Mode to: {:?}", options.mode),
                 Err(e) => {
                     error!(error = ?e, "Error setting wallpaper mode");
                     println!("Error setting wallpaper mode")
@@ -51,7 +47,7 @@ pub fn set_wallpaper(wallpaper: Image, mode: wallpaper_ng::Mode) {
 /// Get a random wallpaper from a selection
 ///
 /// # Arguments
-/// wallpapers: A Vector of Images to select from
+/// * `wallpapers` - A `Vec` of `Image` to select from
 fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
     let current_wallpaper = wallpaper::get().unwrap_or_else(|_| "".to_string());
     let mut rng = rand::rng();
@@ -86,12 +82,12 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
 ///  Set a Random Wallpaper from a selection
 ///
 /// # Arguments
-/// wallpapers: A Vector of Images to select a wallpaper to set from
-/// mode: The mode to set the wallpaper in. Such as "center", "tile"
-pub fn set_random_wallpaper(wallpapers: Vec<Image>, mode: wallpaper_ng::Mode) {
+/// * `wallpapers` - A `Vec` of `Image` to select a wallpaper to set from
+/// * `mode` - The mode to set the wallpaper to
+pub fn set_random_wallpaper(wallpapers: Vec<Image>, options: WallpaperOptions) {
     if wallpapers.len() == 1 {
-        set_wallpaper(wallpapers[0].clone(), mode)
+        set_wallpaper(wallpapers[0].clone(), options)
     } else if let Some(wallpaper) = get_random_wallpaper(wallpapers) {
-        set_wallpaper(wallpaper, mode)
+        set_wallpaper(wallpaper, options)
     }
 }

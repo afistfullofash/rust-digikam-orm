@@ -1,14 +1,16 @@
 use diesel::prelude::*;
+use filters::DarkLightFilter;
 use std::process;
 use tracing::{error, info};
 
 mod config;
+mod filters;
 mod logging;
 mod wallpaper;
 
 use crate::config::get_config;
 use crate::logging::init_logging;
-use crate::wallpaper::{mode_from_config, set_random_wallpaper};
+use crate::wallpaper::{set_random_wallpaper, WallpaperOptions};
 
 use rust_digikam_orm::Images;
 
@@ -37,36 +39,21 @@ fn main() {
         process::exit(-1);
     });
 
-    let dark_mode_setting = config.dark_mode.setting.as_str();
+    let dark_light_filter = config.dark_mode.setting.detect();
 
-    let dark_mode_tags = match dark_mode_setting {
-        "dark" => config.dark_mode.tags.dark,
-        "light" => config.dark_mode.tags.light,
-        "system" => match dark_light::detect().unwrap_or_else(|e| {
-            error!(error = ?e, "Error detecting system dark mode");
-            println!("Error detecting system dark mode");
-            process::exit(-1);
-        }) {
-            dark_light::Mode::Dark => config.dark_mode.tags.dark,
-            dark_light::Mode::Light => config.dark_mode.tags.light,
-            dark_light::Mode::Unspecified => Vec::new(),
-        },
-        "none" => Vec::new(),
-        _ => Vec::new(),
+    let dark_mode_tags = match dark_light_filter {
+        DarkLightFilter::Dark => config.dark_mode.tags.dark,
+        DarkLightFilter::Light => config.dark_mode.tags.light,
+        // We should not have System after running detect()
+        DarkLightFilter::System => Vec::new(),
+        DarkLightFilter::None => Vec::new(),
     };
 
-    if dark_mode_setting != "none" {
-        println!("Setting with dark mode set to: {}", dark_mode_setting);
-        if dark_mode_setting == "system" {
-            println!(
-                "System Dark Mode Setting: {}",
-                match dark_light::detect().unwrap() {
-                    dark_light::Mode::Dark => "Dark",
-                    dark_light::Mode::Light => "Light",
-                    dark_light::Mode::Unspecified => "Unspecified",
-                }
-            );
-        }
+    if dark_light_filter != DarkLightFilter::None {
+        println!(
+            "Setting with dark mode set to: {}",
+            dark_light_filter.as_str()
+        );
     }
 
     let tags = config.tags.into_iter().chain(dark_mode_tags).collect();
@@ -81,7 +68,9 @@ fn main() {
         }
     }
 
-    let wallpaper_options = mode_from_config(&config.wallpaper_mode);
+    let wallpaper_options = WallpaperOptions {
+        mode: config.wallpaper_mode,
+    };
     set_random_wallpaper(wallpapers, wallpaper_options);
 
     process::exit(0);
