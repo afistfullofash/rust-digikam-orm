@@ -1,9 +1,11 @@
 use clap::{Parser, ValueEnum};
-use confique::{Config, json5};
+use confique::{json5, Config};
 use serde::Deserialize;
-use std::fmt;
 use std::path::PathBuf;
 use tracing::error;
+
+use crate::filters::LightDarkFilter;
+use crate::wallpaper::WallpaperMode;
 
 /// The dark/light mode seting to apply
 #[derive(Debug, Config, Deserialize)]
@@ -16,20 +18,6 @@ pub struct TagsModeConfig {
     pub dark: Vec<String>,
 }
 
-/// Options for applying the system light/dark mode
-#[derive(Debug, Deserialize, Clone, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum DarkModeSetting {
-    /// Disable light/dark mode filtering
-    None,
-    /// Apply Dark mode tags
-    Dark,
-    /// Apply Light mode tags
-    Light,
-    /// Apply according to system light/dark mode setting
-    System,
-}
-
 #[derive(Debug, Config, Deserialize)]
 pub struct DarkModeConfig {
     /// Light and Dark mode tags to apply depending on MODE
@@ -37,7 +25,7 @@ pub struct DarkModeConfig {
     pub tags: TagsModeConfig,
     /// The dark/light mode seting to apply
     #[config(default = "None")]
-    pub setting: DarkModeSetting,
+    pub setting: LightDarkFilter,
 }
 
 #[derive(Debug, Config, Deserialize)]
@@ -54,7 +42,7 @@ pub struct AppConfig {
     pub db_path: String,
     /// The MODE to set the wallpaper in.
     #[config(default = "Center")]
-    pub wallpaper_mode: String,
+    pub wallpaper_mode: WallpaperMode,
 }
 
 impl Default for TagsModeConfig {
@@ -63,23 +51,6 @@ impl Default for TagsModeConfig {
             light: default_light_tags(),
             dark: default_dark_tags(),
         }
-    }
-}
-
-impl DarkModeSetting {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            DarkModeSetting::Dark => "dark",
-            DarkModeSetting::Light => "light",
-            DarkModeSetting::System => "system",
-            DarkModeSetting::None => "none",
-        }
-    }
-}
-
-impl fmt::Display for DarkModeSetting {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
@@ -100,12 +71,18 @@ fn default_dark_tags() -> Vec<String> {
     vec!["/Style/Asthetic/Dark".to_string()]
 }
 
-fn default_dark_mode_setting() -> DarkModeSetting {
-    DarkModeSetting::None
+fn default_dark_mode_setting() -> LightDarkFilter {
+    LightDarkFilter::None
 }
 
+/// Sets the wallpaper by randomly selecting a image from digiKam's Database
+///
+/// Features:
+/// - Global Tag Filtering
+/// - Dark/Light Mode Filtering
+/// - Configuration File for runnning headlessly
 #[derive(Debug, Parser)]
-#[command(name = "digikam-wallpaper")]
+#[command(name = "digikam-wallpaper", version)]
 struct Cli {
     /// Configuration file (TOML)
     #[arg(long)]
@@ -115,10 +92,10 @@ struct Cli {
     db_path: Option<String>,
     /// The wallpaper mode to set
     #[arg(long)]
-    wallpaper_mode: Option<String>,
+    wallpaper_mode: Option<WallpaperMode>,
     /// The dark mode settings to apply
     #[arg(long)]
-    dark_mode: Option<DarkModeSetting>,
+    dark_mode: Option<LightDarkFilter>,
     /// Print a configuration file template with default values
     #[arg(long)]
     config_template: bool,

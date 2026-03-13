@@ -3,12 +3,13 @@ use std::process;
 use tracing::{error, info};
 
 mod config;
+mod filters;
 mod logging;
 mod wallpaper;
 
 use crate::config::get_config;
 use crate::logging::init_logging;
-use crate::wallpaper::{mode_from_config, set_random_wallpaper};
+use crate::wallpaper::{set_random_wallpaper, WallpaperOptions};
 
 use rust_digikam_orm::Images;
 
@@ -81,7 +82,9 @@ fn main() {
         }
     }
 
-    let wallpaper_options = mode_from_config(&config.wallpaper_mode);
+    let wallpaper_options = WallpaperOptions {
+        mode: config.wallpaper_mode,
+    };
     set_random_wallpaper(wallpapers, wallpaper_options);
 
     process::exit(0);
