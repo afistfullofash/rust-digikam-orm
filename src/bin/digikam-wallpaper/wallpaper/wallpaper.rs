@@ -18,7 +18,10 @@ pub struct WallpaperOptions {
 /// * `wallpaper` - A `Vec` of `Image` to select a wallpaper to set from
 /// * `mode` - The mode to set the wallpaper in. Such as "center", "tile"
 pub fn set_wallpaper(wallpaper: Image, options: WallpaperOptions) {
-    let base_image_directory = wallpaper.clone().full_path.unwrap();
+    let Some(base_image_directory) = wallpaper.path() else {
+        error!(wallpaper = ?wallpaper, "Cannot set wallpaper without full image path");
+        return;
+    };
 
     let mut complete_image_path_buf = homedir::my_home().unwrap().unwrap();
     complete_image_path_buf.push(&base_image_directory);
@@ -52,7 +55,7 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
     let current_wallpaper = wallpaper::get().unwrap_or_else(|_| "".to_string());
     let mut rng = rand::rng();
     match wallpapers.choose(&mut rng) {
-        Some(candidate) => match &candidate.full_path {
+        Some(candidate) => match candidate.path() {
             Some(path) => {
                 info!(
                     current_wallpaper = current_wallpaper,
@@ -60,7 +63,7 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
                     "Checking if the chosen wallpaper is the same as the one already set"
                 );
 
-                if path != &current_wallpaper {
+                if path != current_wallpaper {
                     info!("The wallpaper is new setting");
                     Some(candidate.clone())
                 } else {

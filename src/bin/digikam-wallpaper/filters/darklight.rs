@@ -1,5 +1,4 @@
 //! # Light/Dark Mode Filter
-use dark_light;
 use serde::Deserialize;
 use std::fmt;
 use std::str::FromStr;
