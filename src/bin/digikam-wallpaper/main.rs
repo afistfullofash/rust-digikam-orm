@@ -10,7 +10,7 @@ mod wallpaper;
 
 use crate::config::get_config;
 use crate::logging::init_logging;
-use crate::wallpaper::{set_random_wallpaper, WallpaperOptions};
+use crate::wallpaper::{WallpaperOptions, set_random_wallpaper};
 
 use rust_digikam_orm::Images;
 
@@ -32,12 +32,6 @@ fn main() {
             process::exit(-1);
         })
         .to_string();
-
-    let connection = &mut SqliteConnection::establish(&db_path).unwrap_or_else(|e| {
-        error!(error = ?e, "Error connecting to database");
-        println!("Error connecting to database: {}", db_path);
-        process::exit(-1);
-    });
 
     let dark_light_filter = config.dark_mode.setting.detect();
 
