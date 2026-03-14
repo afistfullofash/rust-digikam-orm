@@ -10,13 +10,13 @@ use diesel::prelude::*;
 
 use tracing::{debug, error};
 
-use super::models::DigikamModel;
+use super::traits::DigikamModel;
 use crate::db::{get_connection, DigikamDatabaseError};
 
 /// Internal Library representation of the Tags table in the Digikam database
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-#[diesel(belongs_to(Tags, foreign_key = pid))]
+#[diesel(belongs_to(TagsTable, foreign_key = pid))]
 #[diesel(table_name = crate::schema::Tags)]
 pub struct TagsTable {
     /// The id of the `Tag` in the database
@@ -35,7 +35,7 @@ pub struct TagsTable {
 /// A Tag inside Digikam
 #[derive(Debug, Clone)]
 pub struct Tag {
-    database_connection: String,
+    database_connection: str,
     /// The tag as it is in the db
     internal_tag: Option<TagsTable>,
 
@@ -50,12 +50,19 @@ pub struct Tag {
     pub full_name: String,
 }
 
+impl Tag {
+    /// The id of the tag in the database, if the model was initialized from database data.
+    pub fn id(&self) -> Option<i32> {
+        self.internal_tag.as_ref().map(|tag| tag.id)
+    }
+}
+
 impl DigikamModel for Tag {
-    fn get_connection(self) -> Result<SqliteConnection, DigikamDatabaseError> {
-        get_connection(self.database_connection)
+    fn get_connection(&self) -> Result<SqliteConnection, DigikamDatabaseError> {
+        get_connection(&self.database_connection)
     }
 
-    fn new(connection: String) -> Tag {
+    fn new(connection: &str) -> Tag {
         Tag {
             database_connection: connection,
             internal_tag: None,
@@ -69,8 +76,8 @@ impl DigikamModel for Tag {
     /// # Arguments
     /// * `connection` - A Sqlite Connection to the Digikam Database
     /// * `id` - The tags id in the database
-    fn find(self, id: &i32) -> Option<Tag> {
-        match self.clone().get_connection() {
+    fn find(&self, id: i32) -> Option<Tag> {
+        match self.get_connection() {
             Ok(mut database_connection) => {
                 match tags_dsl::Tags
                     .filter(tags_dsl::id.eq(id))
@@ -87,19 +94,27 @@ impl DigikamModel for Tag {
 }
 
 impl Tag {
-    fn construct_tag(self, tagstable: TagsTable) -> Tag {
-        Tag {
-            database_connection: self.database_connection.clone(),
+    fn construct_tag(&self, tagstable: TagsTable) -> Tag {
+        let tag = Tag {
+            database_connection: self.database_connection,
             internal_tag: Some(tagstable.clone()),
-
             name: tagstable.name,
-            full_name: self.get_full_name(),
+            full_name: String::new(),
+        };
+
+        Tag {
+            full_name: tag.get_full_name(),
+            ..tag
         }
     }
 
-    fn get_parent(self) -> Option<Tag> {
-        match self.clone().internal_tag?.pid {
-            Some(pid) => self.clone().find(&pid),
+    /// Get the Parent `Tag` for `Self` if it exists
+    pub fn parent(&self) -> Option<Tag> {
+        match &self.internal_tag {
+            Some(tag_details) => match tag_details.pid {
+                Some(pid) => self.find(pid),
+                None => None,
+            },
             None => None,
         }
     }
@@ -116,10 +131,10 @@ impl Tag {
 
         while let Some(tag) = current_tag {
             debug!("Checking if this tag has a parent");
-            current_tag = self.get_parent();
-            if current_tag.is_some() {
+            current_tag = tag.parent();
+            if let Some(parent_tag) = current_tag.clone() {
                 debug!("Got parent tag");
-                tag_path.push(current_tag);
+                tag_path.push(parent_tag);
             }
 
             debug!(tag = ?current_tag, "After checking parenthood the next tag is");
@@ -132,8 +147,8 @@ impl Tag {
         })
     }
 
-    pub fn find_by_name(self, name: &str) -> Vec<Tag> {
-        match self.clone().get_connection() {
+    pub fn find_by_name(&self, name: &str) -> Vec<Tag> {
+        match self.get_connection() {
             Ok(mut db_connection) => {
                 match tags_dsl::Tags
                     .filter(tags_dsl::name.eq(name))
@@ -156,7 +171,7 @@ impl Tag {
     /// # Arguments
     /// * `connection` - A sqlite connection to the digikam database file
     /// * `path` - The full tag path eg: "/Root Tag/Parent Tag/Our Tag"
-    pub fn get_by_path(self, path: &str) -> Option<Tag> {
+    pub fn get_by_path(&self, path: &str) -> Option<Tag> {
         // We have to match from the lowest tag up even though its used top down
         // So we get all the tags matching the last part and then resolve their full names
         // Using that we then match it against the full path which should give us one result
@@ -192,7 +207,7 @@ impl Tag {
     /// # Arguments
     /// * `connection` - A sqlite connection to the current database
     /// * `image` - A Image to get the tags for
-    pub fn find_for_image(self, image: ImageTable) -> Vec<Tag> {
+    pub fn find_for_image(&self, image: ImageTable) -> Vec<Tag> {
         match self.clone().get_connection() {
             Ok(mut db_connection) => {
                 let image_tags = image_tags_dsl::ImageTags
@@ -203,7 +218,7 @@ impl Tag {
 
                 image_tags.into_iter().filter_map(|image_tag: ImageTags| -> Option<Tag> {
 		    debug!(image_tag = ?image_tag, "Finding the tag for this image_tag");
-		    match self.clone().find(&image_tag.tagid)
+		    match self.find(image_tag.tagid)
 		    {
 			Some(tag) => {
 			    Some(tag)
@@ -224,7 +239,7 @@ impl Tag {
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone, Copy)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 #[diesel(belongs_to(ImageTable, foreign_key = imageid))]
-#[diesel(belongs_to(Tags, foreign_key = tagid))]
+#[diesel(belongs_to(TagsTable, foreign_key = tagid))]
 #[diesel(table_name = crate::schema::ImageTags)]
 #[diesel(primary_key(rowid))]
 pub struct ImageTags {

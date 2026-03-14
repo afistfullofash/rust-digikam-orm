@@ -8,4 +8,4 @@ mod schema;
 
 pub use models::albums::Albums;
 pub use models::images::Image;
-pub use models::tags::{Tag, Tags};
+pub use models::tags::Tag;

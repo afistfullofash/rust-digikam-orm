@@ -3,13 +3,13 @@
 //! Models for interacting with the Images withing a Digikam Database
 use diesel::prelude::*;
 
-use tracing::{debug, error};
+use tracing::debug;
 
-use crate::db::{DigikamDatabaseError, get_connection};
+use crate::db::{get_connection, DigikamDatabaseError};
 
 use crate::models::albums::{AlbumRoots, Albums};
-use crate::models::models::{DigikamModel, HasUniqueHash};
-use crate::models::tags::{ImageTags, Tag, Tags};
+use crate::models::tags::{ImageTags, Tag};
+use crate::models::traits::{DigikamModel, HasUniqueHash};
 
 use crate::schema::AlbumRoots::dsl as album_roots_dsl;
 use crate::schema::Albums::dsl as albums_dsl;
@@ -41,12 +41,10 @@ pub struct ImageTable {
 
 /// A representation of a image from the digiKam Database
 /// This has the tags added to it as a `Vec` of `Tags`
-#[derive(Debug, Clone, DigikamModel)]
+#[derive(Debug, Clone)]
 pub struct Image {
     /// The Sqlite Connection to the digiKam Database
     connection: String,
-    /// If the model has been initalized with database data
-    initalized: bool,
     /// The image id in the database
     pub id: i32,
     /// The album id of the `Album` the `Image` is in
@@ -69,14 +67,13 @@ pub struct Image {
 }
 
 impl DigikamModel for Image {
-    fn get_connection(self) -> Result<SqliteConnection, DigikamDatabaseError> {
-        get_connection(self.connection)
+    fn get_connection(&self) -> Result<SqliteConnection, DigikamDatabaseError> {
+        get_connection(&self.connection)
     }
 
-    fn new(connection: String) -> Image {
+    fn new(connection: &str) -> Image {
         Image {
-            connection: connection,
-            initalized: false,
+            connection,
 
             id: 0,
             album: None,
@@ -97,8 +94,8 @@ impl DigikamModel for Image {
     /// # Arguments
     /// * `connection` - A Diesel connection to the digikam sqlite database
     /// * `id` - The Images id in the database
-    fn find(self, id: i32) -> Option<Image> {
-        match self.clone().get_connection() {
+    fn find(&self, id: i32) -> Option<Image> {
+        match self.get_connection() {
             Ok(mut db_connection) => {
                 debug!(id = id, "Finding a Image by id");
                 match images_dsl::Images
@@ -108,13 +105,13 @@ impl DigikamModel for Image {
                 {
                     Ok(i) => {
                         debug!(image = ?i, "Found a Image. Finding the Images tags");
-                        let image_tags = Tags::get_for_image(&mut db_connection, i.clone());
+                        let image_tags =
+                            Tag::new(&self.connection.clone()).find_for_image(i.clone());
 
                         let full_image_path = self.clone().get_path();
 
                         Some(Image {
-                            connection: self.connection,
-                            initalized: true,
+                            connection: self.connection.clone(),
 
                             id: i.id,
                             album: i.album,
@@ -142,12 +139,17 @@ impl DigikamModel for Image {
 }
 
 impl HasUniqueHash for Image {
-    fn unique_hash(self) -> Option<&str> {
-        self.unique_hash
+    fn unique_hash(&self) -> Option<&str> {
+        self.unique_hash.as_deref()
     }
 }
 
 impl Image {
+    /// Create a new `Image` model bound to a digiKam sqlite connection string.
+    pub fn new(connection: &str) -> Image {
+        <Image as DigikamModel>::new(connection)
+    }
+
     /// Get the full filesystem path for an `Image`
     /// This requires finding the path to the `Image`'s `Album` and `AlbumRoot`
     ///
@@ -155,8 +157,8 @@ impl Image {
     /// * `connection` - A Diesel connection to the digikam database
     /// * `name` - The name of the `Image` we are getting the path for
     /// * `album_id` - The database id of the `Album` this `Image` is in
-    pub fn get_path(self) -> Option<String> {
-        match self.clone().get_connection() {
+    pub fn get_path(&self) -> Option<String> {
+        match self.get_connection() {
             Ok(mut db_connection) => {
                 let album = match albums_dsl::Albums
                     .filter(albums_dsl::id.eq(self.album))
@@ -206,23 +208,21 @@ impl Image {
     /// # Arguments
     /// * `connection` - A connection to the Digikam Sqlite Database
     /// * `tag_strings` - A `Vec` of `String` of the `Tag.full_name` to search by
-    pub fn find_by_tag_strings(self, tag_strings: &Vec<String>) -> Vec<Image> {
-        match self.clone().get_connection() {
-            Ok(mut db_connection) => tag_strings
-                .iter()
-                .map(|tag_string| {
-                    let tag = Tag::get_by_path(&mut db_connection, tag_string).unwrap();
-                    self.clone().find_by_tag(tag)
-                })
-                .reduce(|first, second| {
-                    Image::keep_common(first, second)
-                        .into_iter()
-                        .filter(|image| image.full_path.is_some())
-                        .collect::<Vec<Image>>()
-                })
-                .unwrap_or(Vec::new()),
-            Err(_) => Vec::new(),
-        }
+    pub fn find_by_tag_strings(&self, tag_strings: &[String]) -> Vec<Image> {
+        tag_strings
+            .iter()
+            .map(|tag_string| {
+                Tag::new(&self.connection.clone())
+                    .get_by_path(tag_string)
+                    .map_or_else(Vec::new, |tag| self.clone().find_by_tag(tag))
+            })
+            .reduce(|first, second| {
+                Image::keep_common(first, second)
+                    .into_iter()
+                    .filter(|image| image.full_path.is_some())
+                    .collect::<Vec<Image>>()
+            })
+            .unwrap_or_default()
     }
 
     /// Find `Images` for a given `Tag`
@@ -230,17 +230,22 @@ impl Image {
     /// # Arguments
     /// * `connection` - A connection to the Digikam Sqlite Database
     /// * `tag` - The `Tag` which the `Image`'s are tagged by
-    pub fn find_by_tag(self, tag: Tag) -> Vec<Image> {
-        match self.clone().get_connection() {
+    pub fn find_by_tag(&self, tag: Tag) -> Vec<Image> {
+        match self.get_connection() {
             Ok(mut db_connection) => {
+                let Some(tag_id) = tag.id() else {
+                    debug!(tag = ?&tag, "Could not find images for tag without an id");
+                    return Vec::new();
+                };
+
                 match image_tags_dsl::ImageTags
-                    .filter(image_tags_dsl::tagid.eq(tag.id))
+                    .filter(image_tags_dsl::tagid.eq(tag_id))
                     .select(ImageTags::as_select())
                     .load(&mut db_connection)
                 {
                     Ok(tags) => tags
                         .into_iter()
-                        .filter_map(|tag| self.clone().find(tag.imageid))
+                        .filter_map(|tag| self.find(tag.imageid))
                         .collect::<Vec<Image>>(),
                     Err(_) => {
                         debug!(tag = ?&tag, "Could not find image_tags for tag");

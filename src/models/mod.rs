@@ -1,5 +1,5 @@
 //! The models used by the ORM for querying the database and returning appropriate objects
-mod models;
+mod traits;
 
 pub mod albums;
 pub mod images;

@@ -4,7 +4,7 @@ use crate::db::DigikamDatabaseError;
 
 /// Defines the shared features of the digiKam Models
 pub trait DigikamModel: Sized {
-    fn new(connection: String) -> Self;
+    fn new(connection: &str) -> Self;
     fn get_connection(&self) -> Result<SqliteConnection, DigikamDatabaseError>;
     /// Find a Model in the Databse and return its library representation
     ///

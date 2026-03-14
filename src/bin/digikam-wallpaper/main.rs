@@ -1,4 +1,3 @@
-use diesel::prelude::*;
 use filters::DarkLightFilter;
 use std::process;
 use tracing::{error, info};
@@ -12,7 +11,7 @@ use crate::config::get_config;
 use crate::logging::init_logging;
 use crate::wallpaper::{WallpaperOptions, set_random_wallpaper};
 
-use rust_digikam_orm::Images;
+use rust_digikam_orm::Image;
 
 fn main() {
     init_logging();
@@ -50,9 +49,9 @@ fn main() {
         );
     }
 
-    let tags = config.tags.into_iter().chain(dark_mode_tags).collect();
+    let tags: Vec<String> = config.tags.into_iter().chain(dark_mode_tags).collect();
 
-    let wallpapers = Images::get_by_tag_strings(connection, &tags);
+    let wallpapers = Image::new(db_path).find_by_tag_strings(&tags);
 
     if wallpapers.is_empty() {
         println!("No images matched the tags given.");
