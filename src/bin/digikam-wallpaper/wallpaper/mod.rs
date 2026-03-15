@@ -3,4 +3,4 @@ mod mode;
 mod wallpaper;
 
 pub use mode::WallpaperMode;
-pub use wallpaper::{WallpaperOptions, set_random_wallpaper};
+pub use wallpaper::{set_random_wallpaper, WallpaperOptions};

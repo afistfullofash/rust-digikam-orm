@@ -9,7 +9,7 @@ mod wallpaper;
 
 use crate::config::get_config;
 use crate::logging::init_logging;
-use crate::wallpaper::{WallpaperOptions, set_random_wallpaper};
+use crate::wallpaper::{set_random_wallpaper, WallpaperOptions};
 
 use rust_digikam_orm::Image;
 
@@ -64,7 +64,13 @@ fn main() {
     let wallpaper_options = WallpaperOptions {
         mode: config.wallpaper_mode,
     };
-    set_random_wallpaper(wallpapers, wallpaper_options);
 
-    process::exit(0);
+    match set_random_wallpaper(wallpapers, wallpaper_options) {
+        Ok(_) => {
+            process::exit(0);
+        }
+        Err(_) => {
+            process::exit(-1);
+        }
+    };
 }
