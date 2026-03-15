@@ -110,51 +110,6 @@ impl Image {
         <Image as DigikamModel>::find(self, id)
     }
 
-    /// The database id of the image
-    pub fn id(&self) -> i32 {
-        match &self.internal_data {
-            Some(image) => image.id,
-            None => 0,
-        }
-    }
-
-    /// The name of the image
-    pub fn name(&self) -> String {
-        match &self.internal_data {
-            Some(image) => image.name.clone(),
-            None => "".to_string(),
-        }
-    }
-
-    pub fn tags(&self) -> Vec<Tag> {
-        Tag::new(&self.connection.clone()).find_by_image(self.clone())
-    }
-
-    /// The `Album` the `Image` is in
-    pub fn album(&self) -> Option<Album> {
-        match &self.internal_data {
-            Some(image) => match image.album {
-                Some(album_id) => Album::new(&self.connection.clone()).find(album_id),
-                None => None,
-            },
-            None => None,
-        }
-    }
-
-    /// Get the full filesystem path for an `Image`
-    /// This requires finding the path to the `Image`'s `Album` and `AlbumRoot`
-    ///
-    /// # Arguments
-    /// * `connection` - A Diesel connection to the digikam database
-    /// * `name` - The name of the `Image` we are getting the path for
-    /// * `album_id` - The database id of the `Album` this `Image` is in
-    pub fn path(&self) -> Option<String> {
-        match self.album() {
-            Some(album) => album.path().map(|path| path + "/" + &self.name()),
-            None => None,
-        }
-    }
-
     /// Get an `Vec<Image>` from a `Vec<String>` of Tag Names
     ///
     /// # Arguments
@@ -206,6 +161,51 @@ impl Image {
                 }
             }
             Err(_) => Vec::new(),
+        }
+    }
+
+    /// The database id of the image
+    pub fn id(&self) -> i32 {
+        match &self.internal_data {
+            Some(image) => image.id,
+            None => 0,
+        }
+    }
+
+    /// The name of the image
+    pub fn name(&self) -> String {
+        match &self.internal_data {
+            Some(image) => image.name.clone(),
+            None => "".to_string(),
+        }
+    }
+
+    pub fn tags(&self) -> Vec<Tag> {
+        Tag::new(&self.connection.clone()).find_by_image(self.clone())
+    }
+
+    /// The `Album` the `Image` is in
+    pub fn album(&self) -> Option<Album> {
+        match &self.internal_data {
+            Some(image) => match image.album {
+                Some(album_id) => Album::new(&self.connection.clone()).find(album_id),
+                None => None,
+            },
+            None => None,
+        }
+    }
+
+    /// Get the full filesystem path for an `Image`
+    /// This requires finding the path to the `Image`'s `Album` and `AlbumRoot`
+    ///
+    /// # Arguments
+    /// * `connection` - A Diesel connection to the digikam database
+    /// * `name` - The name of the `Image` we are getting the path for
+    /// * `album_id` - The database id of the `Album` this `Image` is in
+    pub fn path(&self) -> Option<String> {
+        match self.album() {
+            Some(album) => album.path().map(|path| path + "/" + &self.name()),
+            None => None,
         }
     }
 }

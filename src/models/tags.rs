@@ -32,7 +32,7 @@ pub struct TagsTable {
     pub iconkde: Option<String>,
 }
 
-/// A Tag inside Digikam
+/// A `Tag` inside Digikam
 #[derive(Debug, Clone)]
 pub struct Tag {
     /// The path to the digiKam Sqlite Database
@@ -43,9 +43,9 @@ pub struct Tag {
     /// By default the tag name only includes the name of its leaf in the tag tree
     /// e.g: For the tag /Our Tag {id: 3, pid: Some(2), name: "/Our Tag"}
     ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
-    ///     => /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
-    ///     => /Parent Tag                 <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
-    ///     => /Child Tag                  <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
+    ///     + /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
+    ///     + /Parent Tag                 <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
+    ///     + /Child Tag                  <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
     full_name: String,
 }
 
@@ -58,72 +58,6 @@ impl Tag {
     /// Find a `Tag` by its digiKam database id.
     pub fn find_by_id(&self, id: i32) -> Option<Tag> {
         <Tag as DigikamModel>::find(self, id)
-    }
-
-    /// The id of the tag in the database, if the model was initialized from database data.
-    pub fn id(&self) -> Option<i32> {
-        self.internal_tag.as_ref().map(|tag| tag.id)
-    }
-
-    /// The name of the tag
-    pub fn name(&self) -> String {
-        match &self.internal_tag {
-            Some(tag_details) => tag_details.name.clone(),
-            None => "".to_string(),
-        }
-    }
-
-    /// The full name of the tag
-    ///
-    /// # Returns
-    /// The Full Name of the tag expanded for the full path
-    /// By default the tag name only includes the name of its leaf in the tag tree
-    /// e.g: For the tag /Our Tag {id: 3, pid: Some(2), name: "/Our Tag"}
-    ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
-    ///     => /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
-    ///     => /Parent Tag                 <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
-    ///     => /Child Tag                  <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
-    pub fn full_name(&self) -> String {
-        self.full_name.clone()
-    }
-
-    /// Get the Parent `Tag` for `Self` if it exists
-    pub fn parent(&self) -> Option<Tag> {
-        match &self.internal_tag {
-            Some(tag_details) => match tag_details.pid {
-                Some(pid) => self.find(pid),
-                None => None,
-            },
-            None => None,
-        }
-    }
-
-    /// Get the full tag name as the database does not contain this as a single value
-    ///
-    /// # Arguments
-    /// * `connection` - A Connection to the Digikam Sqlite Database
-    fn get_full_name(&self) -> String {
-        debug!(tag = ?self, "Getting Full tag name");
-        let mut tag_path: Vec<Tag> = Vec::from([self.clone()]);
-
-        let mut current_tag = Some(self.clone());
-
-        while let Some(tag) = current_tag {
-            debug!("Checking if this tag has a parent");
-            current_tag = tag.parent();
-            if let Some(parent_tag) = current_tag.clone() {
-                debug!("Got parent tag");
-                tag_path.push(parent_tag);
-            }
-
-            debug!(tag = ?current_tag, "After checking parenthood the next tag is");
-        }
-        debug!(tag_path = ?tag_path, "Tags for tag path");
-        tag_path.into_iter().rev().fold("".to_string(), |acc, t| {
-            let tag_name = acc.clone() + "/" + &t.name();
-            debug!(tag_name = tag_name, acc = ?acc, t = ?t, "Forming Name");
-            tag_name
-        })
     }
 
     /// Find a `Tag` by searching for it by name
@@ -212,6 +146,74 @@ impl Tag {
             }
             Err(_) => Vec::new(),
         }
+    }
+
+    /// The id of the tag in the database, if the model was initialized from database data.
+    pub fn id(&self) -> Option<i32> {
+        self.internal_tag.as_ref().map(|tag| tag.id)
+    }
+
+    /// The name of the tag
+    pub fn name(&self) -> String {
+        match &self.internal_tag {
+            Some(tag_details) => tag_details.name.clone(),
+            None => "".to_string(),
+        }
+    }
+
+    /// The full name of the tag
+    ///
+    /// # Returns
+    ///
+    /// The Full Name of the tag expanded for the full path.
+    /// By default the tag name only includes the name of its leaf in the tag tree.
+    ///
+    /// e.g: For the tag /Our Tag `{id: 3, pid: Some(2), name: "/Our Tag"}`:
+    ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
+    ///     + /Root Tag                   <-- `Tag {id: 1, pid: None, name: "/Root Tag"}`
+    ///     + /Parent Tag                 <-- `Tag {id: 2, pid: Some(1), name: "/Parent Tag"}`
+    ///     + /Child Tag                  <-- `Tag {id: 3, pid: Some(2), name: "/Child Tag"}`
+    pub fn full_name(&self) -> String {
+        self.full_name.clone()
+    }
+
+    /// Get the Parent `Tag` for `Self` if it exists
+    pub fn parent(&self) -> Option<Tag> {
+        match &self.internal_tag {
+            Some(tag_details) => match tag_details.pid {
+                Some(pid) => self.find(pid),
+                None => None,
+            },
+            None => None,
+        }
+    }
+
+    /// Get the full tag name as the database does not contain this as a single value
+    ///
+    /// # Arguments
+    /// * `connection` - A Connection to the Digikam Sqlite Database
+    fn get_full_name(&self) -> String {
+        debug!(tag = ?self, "Getting Full tag name");
+        let mut tag_path: Vec<Tag> = Vec::from([self.clone()]);
+
+        let mut current_tag = Some(self.clone());
+
+        while let Some(tag) = current_tag {
+            debug!("Checking if this tag has a parent");
+            current_tag = tag.parent();
+            if let Some(parent_tag) = current_tag.clone() {
+                debug!("Got parent tag");
+                tag_path.push(parent_tag);
+            }
+
+            debug!(tag = ?current_tag, "After checking parenthood the next tag is");
+        }
+        debug!(tag_path = ?tag_path, "Tags for tag path");
+        tag_path.into_iter().rev().fold("".to_string(), |acc, t| {
+            let tag_name = acc.clone() + "/" + &t.name();
+            debug!(tag_name = tag_name, acc = ?acc, t = ?t, "Forming Name");
+            tag_name
+        })
     }
 }
 

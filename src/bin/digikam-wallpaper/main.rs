@@ -9,7 +9,7 @@ mod wallpaper;
 
 use crate::config::get_config;
 use crate::logging::init_logging;
-use crate::wallpaper::{set_random_wallpaper, WallpaperOptions};
+use crate::wallpaper::{WallpaperOptions, set_random_wallpaper};
 
 use rust_digikam_orm::Image;
 
