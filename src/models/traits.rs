@@ -45,6 +45,8 @@ pub trait DigikamModel: Sized {
     }
 }
 
+/// A Unique Identifier for the impl
 pub trait HasUniqueHash {
+    /// Get a Unique Identifier for `Self`
     fn unique_hash(&self) -> Option<&str>;
 }

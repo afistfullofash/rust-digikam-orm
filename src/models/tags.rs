@@ -1,17 +1,16 @@
 //! # Tags
 //!
 //! Models for interacting with the Tags within a Digikam Database
-use crate::models::images::ImageTable;
-use crate::schema::ImageTags::dsl as image_tags_dsl;
-use crate::schema::Tags::dsl as tags_dsl;
-
 use diesel::associations::Identifiable;
 use diesel::prelude::*;
-
 use tracing::{debug, error};
 
 use super::traits::DigikamModel;
 use crate::db::{get_connection, DigikamDatabaseError};
+
+use crate::models::images::ImageTable;
+use crate::schema::ImageTags::dsl as image_tags_dsl;
+use crate::schema::Tags::dsl as tags_dsl;
 
 /// Internal Library representation of the Tags table in the Digikam database
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
@@ -35,77 +34,56 @@ pub struct TagsTable {
 /// A Tag inside Digikam
 #[derive(Debug, Clone)]
 pub struct Tag {
-    database_connection: str,
+    /// The path to the digiKam Sqlite Database
+    database_connection: String,
     /// The tag as it is in the db
     internal_tag: Option<TagsTable>,
-
     /// The Full Name of the tag expanded for the full path
     /// By default the tag name only includes the name of its leaf in the tag tree
     /// e.g: For the tag /Our Tag {id: 3, pid: Some(2), name: "/Our Tag"}
     ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
     ///     => /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
-    ///       => /Parent Tag               <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
-    ///         => /Child Tag              <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
-    pub name: String,
-    pub full_name: String,
+    ///     => /Parent Tag                 <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
+    ///     => /Child Tag                  <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
+    full_name: String,
 }
 
 impl Tag {
+    /// Create a new `Tag` model bound to a digiKam sqlite connection string.
+    pub fn new(connection: &str) -> Tag {
+        <Tag as DigikamModel>::new(connection)
+    }
+
+    /// Find a `Tag` by its digiKam database id.
+    pub fn find_by_id(&self, id: i32) -> Option<Tag> {
+        <Tag as DigikamModel>::find(self, id)
+    }
+
     /// The id of the tag in the database, if the model was initialized from database data.
     pub fn id(&self) -> Option<i32> {
         self.internal_tag.as_ref().map(|tag| tag.id)
     }
-}
 
-impl DigikamModel for Tag {
-    fn get_connection(&self) -> Result<SqliteConnection, DigikamDatabaseError> {
-        get_connection(&self.database_connection)
-    }
-
-    fn new(connection: &str) -> Tag {
-        Tag {
-            database_connection: connection,
-            internal_tag: None,
-            name: "".to_string(),
-            full_name: "".to_string(),
+    /// The name of the tag
+    pub fn name(&self) -> String {
+        match &self.internal_tag {
+            Some(tag_details) => tag_details.name.clone(),
+            None => "".to_string(),
         }
     }
 
-    /// Finds a `Tag` given the tags id in the digikam database
+    /// The full name of the tag
     ///
-    /// # Arguments
-    /// * `connection` - A Sqlite Connection to the Digikam Database
-    /// * `id` - The tags id in the database
-    fn find(&self, id: i32) -> Option<Tag> {
-        match self.get_connection() {
-            Ok(mut database_connection) => {
-                match tags_dsl::Tags
-                    .filter(tags_dsl::id.eq(id))
-                    .select(TagsTable::as_select())
-                    .first::<TagsTable>(&mut database_connection)
-                {
-                    Ok(tag) => Some(self.construct_tag(tag)),
-                    Err(_) => None,
-                }
-            }
-            Err(_) => None,
-        }
-    }
-}
-
-impl Tag {
-    fn construct_tag(&self, tagstable: TagsTable) -> Tag {
-        let tag = Tag {
-            database_connection: self.database_connection,
-            internal_tag: Some(tagstable.clone()),
-            name: tagstable.name,
-            full_name: String::new(),
-        };
-
-        Tag {
-            full_name: tag.get_full_name(),
-            ..tag
-        }
+    /// # Returns
+    /// The Full Name of the tag expanded for the full path
+    /// By default the tag name only includes the name of its leaf in the tag tree
+    /// e.g: For the tag /Our Tag {id: 3, pid: Some(2), name: "/Our Tag"}
+    ///   - /Root Tag/Parent Tag/Child Tag <-- Full Tag name
+    ///     => /Root Tag                   <-- Tag {id: 1, pid: None, name: "/Root Tag"}
+    ///     => /Parent Tag                 <-- Tag {id: 2, pid: Some(1), name: "/Parent Tag"}
+    ///     => /Child Tag                  <-- Tag {id: 3, pid: Some(2), name: "/Child Tag"}
+    pub fn full_name(&self) -> String {
+        self.full_name.clone()
     }
 
     /// Get the Parent `Tag` for `Self` if it exists
@@ -141,12 +119,13 @@ impl Tag {
         }
         debug!(tag_path = ?tag_path, "Tags for tag path");
         tag_path.into_iter().rev().fold("".to_string(), |acc, t| {
-            let tag_name = acc.clone() + "/" + &t.name;
+            let tag_name = acc.clone() + "/" + &t.name();
             debug!(tag_name = tag_name, acc = ?acc, t = ?t, "Forming Name");
             tag_name
         })
     }
 
+    /// Find a `Tag` by searching for it by name
     pub fn find_by_name(&self, name: &str) -> Vec<Tag> {
         match self.get_connection() {
             Ok(mut db_connection) => {
@@ -157,7 +136,7 @@ impl Tag {
                 {
                     Ok(tags) => tags
                         .into_iter()
-                        .map(|tag| self.clone().construct_tag(tag))
+                        .map(|tag| (tag, self.database_connection.as_str()).into())
                         .collect::<Vec<Tag>>(),
                     Err(_) => Vec::new(),
                 }
@@ -171,7 +150,7 @@ impl Tag {
     /// # Arguments
     /// * `connection` - A sqlite connection to the digikam database file
     /// * `path` - The full tag path eg: "/Root Tag/Parent Tag/Our Tag"
-    pub fn get_by_path(&self, path: &str) -> Option<Tag> {
+    pub fn find_by_path(&self, path: &str) -> Option<Tag> {
         // We have to match from the lowest tag up even though its used top down
         // So we get all the tags matching the last part and then resolve their full names
         // Using that we then match it against the full path which should give us one result
@@ -231,6 +210,56 @@ impl Tag {
 		}).collect::<Vec<Tag>>()
             }
             Err(_) => Vec::new(),
+        }
+    }
+}
+
+impl DigikamModel for Tag {
+    fn get_connection(&self) -> Result<SqliteConnection, DigikamDatabaseError> {
+        get_connection(&self.database_connection)
+    }
+
+    fn new(connection: &str) -> Tag {
+        Tag {
+            database_connection: connection.to_string(),
+            internal_tag: None,
+            full_name: "".to_string(),
+        }
+    }
+
+    /// Finds a `Tag` given the tags id in the digikam database
+    ///
+    /// # Arguments
+    /// * `connection` - A Sqlite Connection to the Digikam Database
+    /// * `id` - The tags id in the database
+    fn find(&self, id: i32) -> Option<Tag> {
+        match self.get_connection() {
+            Ok(mut database_connection) => {
+                match tags_dsl::Tags
+                    .filter(tags_dsl::id.eq(id))
+                    .select(TagsTable::as_select())
+                    .first::<TagsTable>(&mut database_connection)
+                {
+                    Ok(tag) => Some((tag, self.database_connection.as_str()).into()),
+                    Err(_) => None,
+                }
+            }
+            Err(_) => None,
+        }
+    }
+}
+
+impl From<(TagsTable, &str)> for Tag {
+    fn from((tagstable, db_connection): (TagsTable, &str)) -> Tag {
+        let tag = Tag {
+            database_connection: db_connection.to_string(),
+            internal_tag: Some(tagstable.clone()),
+            full_name: String::new(),
+        };
+
+        Tag {
+            full_name: tag.get_full_name(),
+            ..tag
         }
     }
 }

@@ -51,7 +51,7 @@ fn main() {
 
     let tags: Vec<String> = config.tags.into_iter().chain(dark_mode_tags).collect();
 
-    let wallpapers = Image::new(db_path).find_by_tag_strings(&tags);
+    let wallpapers = Image::new(&db_path).find_by_tag_strings(&tags);
 
     if wallpapers.is_empty() {
         println!("No images matched the tags given.");

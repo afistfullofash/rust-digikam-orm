@@ -7,12 +7,10 @@ use tracing::debug;
 
 use crate::db::{get_connection, DigikamDatabaseError};
 
-use crate::models::albums::{AlbumRoots, Albums};
+use crate::models::albums::Album;
 use crate::models::tags::{ImageTags, Tag};
 use crate::models::traits::{DigikamModel, HasUniqueHash};
 
-use crate::schema::AlbumRoots::dsl as album_roots_dsl;
-use crate::schema::Albums::dsl as albums_dsl;
 use crate::schema::ImageTags::dsl as image_tags_dsl;
 use crate::schema::Images::dsl as images_dsl;
 
@@ -45,25 +43,12 @@ pub struct ImageTable {
 pub struct Image {
     /// The Sqlite Connection to the digiKam Database
     connection: String,
-    /// The image id in the database
-    pub id: i32,
-    /// The album id of the `Album` the `Image` is in
-    pub album: Option<i32>,
-    /// The name of the `Image`. This includes the file extension (i.e: foo.jpg)
-    pub name: String,
-    pub status: i32,
-    pub category: i32,
-    pub modification_date: Option<String>,
-    /// The size of the `Image`
-    pub file_size: Option<i32>,
-    /// The unique hash of the `Image` in the database
-    pub unique_hash: Option<String>,
-    pub manual_order: Option<i32>,
+    internal_data: Option<ImageTable>,
 
     /// The full file system path to the `Image`
-    pub full_path: Option<String>,
+    full_path: Option<String>,
     /// The Tags which are applied to the `Image`
-    pub tags: Vec<Tag>,
+    tags: Vec<Tag>,
 }
 
 impl DigikamModel for Image {
@@ -73,22 +58,15 @@ impl DigikamModel for Image {
 
     fn new(connection: &str) -> Image {
         Image {
-            connection,
+            connection: connection.to_string(),
 
-            id: 0,
-            album: None,
-            name: "".to_string(),
-            status: 0,
-            category: 0,
-            modification_date: None,
-            file_size: None,
-            unique_hash: None,
-            manual_order: None,
+            internal_data: None,
 
             full_path: None,
             tags: Vec::new(),
         }
     }
+
     /// Get a `Image` given the Images database id
     ///
     /// # Arguments
@@ -108,20 +86,17 @@ impl DigikamModel for Image {
                         let image_tags =
                             Tag::new(&self.connection.clone()).find_for_image(i.clone());
 
-                        let full_image_path = self.clone().get_path();
+                        let full_image_path = Image {
+                            connection: self.connection.clone(),
+                            internal_data: Some(i.clone()),
+                            full_path: None,
+                            tags: Vec::new(),
+                        }
+                        .get_path();
 
                         Some(Image {
                             connection: self.connection.clone(),
-
-                            id: i.id,
-                            album: i.album,
-                            name: i.name,
-                            status: i.status,
-                            category: i.category,
-                            modification_date: i.modification_date,
-                            file_size: i.file_size,
-                            unique_hash: i.unique_hash,
-                            manual_order: i.manual_order,
+                            internal_data: Some(i.clone()),
 
                             full_path: full_image_path,
                             tags: image_tags,
@@ -140,7 +115,7 @@ impl DigikamModel for Image {
 
 impl HasUniqueHash for Image {
     fn unique_hash(&self) -> Option<&str> {
-        self.unique_hash.as_deref()
+        Some(&self.clone().id().to_string())
     }
 }
 
@@ -148,6 +123,35 @@ impl Image {
     /// Create a new `Image` model bound to a digiKam sqlite connection string.
     pub fn new(connection: &str) -> Image {
         <Image as DigikamModel>::new(connection)
+    }
+
+    /// Find an `Image` by its digiKam database id.
+    pub fn find_by_id(&self, id: i32) -> Option<Image> {
+        <Image as DigikamModel>::find(self, id)
+    }
+
+    pub fn id(&self) -> i32 {
+        match &self.internal_data {
+            Some(image) => image.id,
+            None => 0,
+        }
+    }
+
+    pub fn name(&self) -> String {
+        match &self.internal_data {
+            Some(image) => image.name.clone(),
+            None => "".to_string(),
+        }
+    }
+
+    pub fn album(&self) -> Option<Album> {
+        match &self.internal_data {
+            Some(image) => match image.album {
+                Some(album_id) => Album::new(&self.connection.clone()).find(album_id),
+                None => None,
+            },
+            None => None,
+        }
     }
 
     /// Get the full filesystem path for an `Image`
@@ -158,48 +162,12 @@ impl Image {
     /// * `name` - The name of the `Image` we are getting the path for
     /// * `album_id` - The database id of the `Album` this `Image` is in
     pub fn get_path(&self) -> Option<String> {
-        match self.get_connection() {
-            Ok(mut db_connection) => {
-                let album = match albums_dsl::Albums
-                    .filter(albums_dsl::id.eq(self.album))
-                    .select(Albums::as_select())
-                    .first::<Albums>(&mut db_connection)
-                {
-                    Ok(album) => Some(album),
-                    Err(e) => {
-                        debug!(error= ?e, image = ?self.album, "Error getting the Album this Image Refers to");
-                        None
-                    }
-                };
-
-                let root_path = match &album {
-                    Some(a) => {
-                        match album_roots_dsl::AlbumRoots
-                            .filter(album_roots_dsl::id.eq(a.album_root))
-                            .select(AlbumRoots::as_select())
-                            .first::<AlbumRoots>(&mut db_connection)
-                        {
-                            Ok(album_root) => Some(album_root),
-                            Err(_) => {
-                                debug!(album = ?a, "Error getting the AlbumRoot this Album Refers to");
-                                None
-                            }
-                        }
-                    }
-                    None => None,
-                };
-
-                match (album, root_path) {
-                    (Some(a), Some(ar)) => match ar.specific_path {
-                        Some(specific_path) => {
-                            Some(specific_path + &a.relative_path + "/" + &self.name)
-                        }
-                        None => None,
-                    },
-                    _ => None,
-                }
-            }
-            Err(_) => None,
+        match self.album() {
+            Some(album) => match album.path() {
+                Some(path) => Some(path + "/" + &self.name()),
+                None => None,
+            },
+            None => None,
         }
     }
 
@@ -213,7 +181,7 @@ impl Image {
             .iter()
             .map(|tag_string| {
                 Tag::new(&self.connection.clone())
-                    .get_by_path(tag_string)
+                    .find_by_path(tag_string)
                     .map_or_else(Vec::new, |tag| self.clone().find_by_tag(tag))
             })
             .reduce(|first, second| {

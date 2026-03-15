@@ -6,6 +6,6 @@ mod db;
 mod models;
 mod schema;
 
-pub use models::albums::Albums;
+pub use models::albums::Album;
 pub use models::images::Image;
 pub use models::tags::Tag;

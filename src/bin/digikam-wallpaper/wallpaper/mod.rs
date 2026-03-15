@@ -1,4 +1,5 @@
 mod mode;
+#[allow(clippy::module_inception)]
 mod wallpaper;
 
 pub use mode::WallpaperMode;
