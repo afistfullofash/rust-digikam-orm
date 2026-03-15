@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use rand::prelude::IndexedRandom;
 use wallpaper_ng as wallpaper;
 
@@ -12,39 +13,60 @@ pub struct WallpaperOptions {
     pub mode: WallpaperMode,
 }
 
+fn get_complete_image_path(image: Image) -> Result<String> {
+    let Some(base_image_directory) = image.path() else {
+        error!(wallpaper = ?image, "Cannot set wallpaper without full image path");
+        return Err(anyhow!("Cannot set wallpaper without full image path"));
+    };
+
+    match homedir::my_home() {
+        Ok(home) => match home {
+            Some(mut path) => {
+                path.push(&base_image_directory);
+                Ok(path.as_path().display().to_string())
+            }
+            None => {
+                error!("Home Directory does not exist");
+                Err(anyhow!("Home Directory does not exist"))
+            }
+        },
+        Err(_) => {
+            error!("Error getting the Home directory for user");
+            Err(anyhow!("Could not get the home directory"))
+        }
+    }
+}
+
 /// Set a single wallpaper
 ///
 /// # Arguments
 /// * `wallpaper` - A `Vec` of `Image` to select a wallpaper to set from
 /// * `mode` - The mode to set the wallpaper in. Such as "center", "tile"
-pub fn set_wallpaper(wallpaper: Image, options: WallpaperOptions) {
-    let Some(base_image_directory) = wallpaper.path() else {
-        error!(wallpaper = ?wallpaper, "Cannot set wallpaper without full image path");
-        return;
-    };
+pub fn set_wallpaper(wallpaper: Image, options: WallpaperOptions) -> Result<()> {
+    let image_path = get_complete_image_path(wallpaper)?;
 
-    let mut complete_image_path_buf = homedir::my_home().unwrap().unwrap();
-    complete_image_path_buf.push(&base_image_directory);
-
-    let complete_image_path = complete_image_path_buf.as_path().display().to_string();
-
-    match wallpaper::set_from_path(&complete_image_path) {
+    match wallpaper::set_from_path(&image_path) {
         Ok(_) => {
-            println!("Set wallpaper to: {}", complete_image_path);
+            println!("Set wallpaper to: {}", image_path);
             let wallpaper_ng_mode: wallpaper_ng::Mode = options.mode.into();
             match wallpaper_ng::set_mode(wallpaper_ng_mode) {
-                Ok(_) => println!("Set Wallpaper Mode to: {:?}", options.mode),
+                Ok(_) => {
+                    println!("Set Wallpaper Mode to: {:?}", options.mode);
+                    Ok(())
+                }
                 Err(e) => {
                     error!(error = ?e, "Error setting wallpaper mode");
-                    println!("Error setting wallpaper mode")
+                    println!("Error setting wallpaper mode");
+                    Err(anyhow!("Error setting wallpaper mode"))
                 }
             }
         }
         Err(e) => {
             error!(error = ?e, "Error setting wallpaper");
-            println!("Error setting wallpaper: {}", complete_image_path)
+            println!("Error setting wallpaper: {}", image_path);
+            Err(anyhow!("Error setting Wallpaper"))
         }
-    };
+    }
 }
 
 /// Get a random wallpaper from a selection
@@ -87,10 +109,10 @@ fn get_random_wallpaper(wallpapers: Vec<Image>) -> Option<Image> {
 /// # Arguments
 /// * `wallpapers` - A `Vec` of `Image` to select a wallpaper to set from
 /// * `mode` - The mode to set the wallpaper to
-pub fn set_random_wallpaper(wallpapers: Vec<Image>, options: WallpaperOptions) {
+pub fn set_random_wallpaper(wallpapers: Vec<Image>, options: WallpaperOptions) -> Result<()> {
     if wallpapers.len() == 1 {
-        set_wallpaper(wallpapers[0].clone(), options)
-    } else if let Some(wallpaper) = get_random_wallpaper(wallpapers) {
-        set_wallpaper(wallpaper, options)
+        return set_wallpaper(wallpapers[0].clone(), options);
+    } else if let Some(image) = get_random_wallpaper(wallpapers) {
+        return set_wallpaper(image, options);
     }
 }
