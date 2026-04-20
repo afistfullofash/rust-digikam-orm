@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use rand::prelude::IndexedRandom;
-use wallpaper_ng as wallpaper;
+use wallpaper_bce as wallpaper;
 
 use rust_digikam_orm::Image;
 use tracing::{debug, error, info};
@@ -48,14 +48,14 @@ pub fn set_wallpaper(wallpaper: Image, options: WallpaperOptions) -> Result<()> 
     match wallpaper::set_from_path(&image_path) {
         Ok(_) => {
             println!("Set wallpaper to: {}", image_path);
-            let wallpaper_ng_mode: wallpaper_ng::Mode = options.mode.into();
-            match wallpaper_ng::set_mode(wallpaper_ng_mode) {
+            let wallpaper_bce_mode: wallpaper_bce::Mode = options.mode.into();
+            match wallpaper_bce::set_mode(wallpaper_bce_mode) {
                 Ok(_) => {
                     println!("Set Wallpaper Mode to: {:?}", options.mode);
                     Ok(())
                 }
                 Err(e) => match e {
-                    wallpaper_ng::Error::UnsupportedDesktop => {
+                    wallpaper_bce::Error::UnsupportedDesktop => {
                         debug!("Unsupported desktop for setting Wallpaper Mode");
                         Ok(())
                     }

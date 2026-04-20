@@ -65,28 +65,28 @@ impl fmt::Display for WallpaperMode {
     }
 }
 
-impl From<WallpaperMode> for wallpaper_ng::Mode {
+impl From<WallpaperMode> for wallpaper_bce::Mode {
     fn from(mode: WallpaperMode) -> Self {
         match mode {
-            WallpaperMode::Center => wallpaper_ng::Mode::Center,
-            WallpaperMode::Crop => wallpaper_ng::Mode::Crop,
-            WallpaperMode::Fit => wallpaper_ng::Mode::Fit,
-            WallpaperMode::Span => wallpaper_ng::Mode::Span,
-            WallpaperMode::Stretch => wallpaper_ng::Mode::Stretch,
-            WallpaperMode::Tile => wallpaper_ng::Mode::Tile,
+            WallpaperMode::Center => wallpaper_bce::Mode::Center,
+            WallpaperMode::Crop => wallpaper_bce::Mode::Crop,
+            WallpaperMode::Fit => wallpaper_bce::Mode::Fit,
+            WallpaperMode::Span => wallpaper_bce::Mode::Span,
+            WallpaperMode::Stretch => wallpaper_bce::Mode::Stretch,
+            WallpaperMode::Tile => wallpaper_bce::Mode::Tile,
         }
     }
 }
 
-impl From<wallpaper_ng::Mode> for WallpaperMode {
-    fn from(mode: wallpaper_ng::Mode) -> Self {
+impl From<wallpaper_bce::Mode> for WallpaperMode {
+    fn from(mode: wallpaper_bce::Mode) -> Self {
         match mode {
-            wallpaper_ng::Mode::Center => WallpaperMode::Center,
-            wallpaper_ng::Mode::Crop => WallpaperMode::Crop,
-            wallpaper_ng::Mode::Fit => WallpaperMode::Fit,
-            wallpaper_ng::Mode::Span => WallpaperMode::Span,
-            wallpaper_ng::Mode::Stretch => WallpaperMode::Stretch,
-            wallpaper_ng::Mode::Tile => WallpaperMode::Tile,
+            wallpaper_bce::Mode::Center => WallpaperMode::Center,
+            wallpaper_bce::Mode::Crop => WallpaperMode::Crop,
+            wallpaper_bce::Mode::Fit => WallpaperMode::Fit,
+            wallpaper_bce::Mode::Span => WallpaperMode::Span,
+            wallpaper_bce::Mode::Stretch => WallpaperMode::Stretch,
+            wallpaper_bce::Mode::Tile => WallpaperMode::Tile,
         }
     }
 }
